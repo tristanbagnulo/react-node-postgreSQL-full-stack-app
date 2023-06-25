@@ -16,7 +16,25 @@ const pool = new Pool({
     password: process.env.DB_PASSWORD,
     port: process.env.DB_PORT,
 })
+//+++++++++++++++++
+//REQUESTS
+//+++++++++++++++++
 
+//GET - Get all customer from customers table
+app.get('/customers', async (req, res) => {
+    try {
+        const query = 'SELECT * FROM customers;';
+        const result = await pool.query(query);
+
+        res.setHeader('Content-Type', 'application/json');
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+//POST - Add 1 customer
 app.post('/addCustomers', async (req, res) => {
     try {
         console.log("Request Body: ", req.body);
@@ -41,26 +59,80 @@ app.post('/addCustomers', async (req, res) => {
 });
 
 
-// const customerData = {
-//     customer_full_name: 'Jane Yo!',
-//     customer_email: 'jane.yizzle@exemplary.com',
-//     customer_join_date: new Date().toISOString(),
-// };
 
-// pool.query(insertCustomerQuery, [
-// customerData.customer_full_name,
-// customerData.customer_email,
-// customerData.customer_join_date,
-// ])
-// .then(result => {
-//     const insertedRow = result.rows[0];
-//     console.log('New row inserted:', insertedRow);
-// })
-// .catch(error => {
-//     console.error('Error inserting row:', error);
-// });
 
-//Query
+//PUT - Change 1 customer's details
+
+app.put('/updateCustomerName', async (req, res) => {
+    try {
+    // variables
+        const { customerId, field, newValue } = req.body;
+        const values = [ customerId, field, newValue ];
+    // sql statement
+        const updateQuery = `
+            UPDATE customers
+            SET ${field} = $3
+            WHERE customer_id = $1
+            RETURNING customer_id, customer_full_name, customer_email, customer_join_date;
+        `;
+    // send postgre request
+        const result = await pool.query(updateQuery, values);
+    // if error statement
+        if (result.rowCount === 0){
+            return res.status(404).json({error: 'Customer not found.'});
+        }
+        res.json({message: "Customer successfully updated"})
+    // if successful return given result
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+//DELETE - Delete 1 customer - PARAMETER VERSION
+app.delete('/deleteCustomer/:customer_id', async (req, res) => {
+    try {
+        const customer_id = req.params.customer_id;
+        const deleteCustomerQuery = `DELETE FROM customers WHERE customer_id = $1 RETURNING *;`;
+        const result = await pool.query(deleteCustomerQuery, [customer_id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({error: 'Customer not found' });
+        }
+
+        res.json({message: 'Customer deleted successfully'});
+
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+//DELETE - Delete 1 customer - BODY VERSION
+app.delete('/deleteCustomer', async (req, res) => {
+    try {
+        const { customer_id } = req.body;
+        const deleteCustomerQuery = `DELETE FROM customers WHERE customer_id = $1 RETURNING *;`;
+        const result = await pool.query(deleteCustomerQuery, [customer_id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({error: 'Customer not found' });
+        }
+
+        res.json({message: 'Customer deleted successfully'});
+
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+  
+
+//+++++++++++++++++
+//FOR TESTING
+//+++++++++++++++++
+
+//GET ALL
 const getAllRows = async () => {
     try {
         const query = `SELECT * FROM customers;`;
@@ -71,31 +143,7 @@ const getAllRows = async () => {
         console.error('Error:', error);
     }
 }
-
 getAllRows();
-
-//Query endpoint for frontend app
-app.get('/customers', async (req, res) => {
-    try {
-        const query = 'SELECT * FROM customers;';
-        const result = await pool.query(query);
-
-        res.setHeader('Content-Type', 'application/json');
-        res.json(result.rows);
-    } catch (error) {
-        console.error('Error:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-});
-  
-
-
-
-
-//Routes
-app.get('/', (req, res) => {
-    res.send('Hello, world!');
-})
 
 //Start the server
 const port = 3001; //Choose port here
